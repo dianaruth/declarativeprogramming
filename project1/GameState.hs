@@ -1,4 +1,4 @@
-module GameState where
+module GameState (GameState(..)) where
 
 import Card
 
