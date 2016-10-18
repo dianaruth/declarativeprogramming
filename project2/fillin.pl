@@ -92,17 +92,74 @@ samelength([], []).
 samelength([_|L1], [_|L2]) :-
 	same_length(L1, L2).
 
-
 % solve_puzzle(Puzzle, Words, Solved)
 % should hold when Solved is a solved version of Puzzle, with the
 % empty slots filled in with words from Words.  Puzzle and Solved
 % should be lists of lists of characters (single-character atoms), one
 % list per puzzle row. Words is also a list of lists of
 % characters, one list per word.
-
 solve_puzzle(Puzzle, Words, Solved) :-
-	convert_puzzle(Puzzle, A),
-	print(A).
+	convert_puzzle(Puzzle, Converted),
+	extract_puzzle_slots(Converted, Slots),
+	match_slots(Slots, Words),
+	Solved = Converted.
+
+% match_slots(Slots, Words)
+% should hold when Slots is a list of slots (containing letters or variables)
+% that has been filled with the words in Words. Each word in Words can only
+% fit into one slot in Slots.
+match_slots([], []).
+match_slots(Slots, Words) :-
+	match_lengths(Slots, Words, MatchesWithLengths),
+	pick_match(MatchesWithLengths, Slot, Match),
+	Slot = Match,
+	select(Match, Words, NewWords),
+	select(Slot, Slots, NewSlots),
+	match_slots(NewSlots, NewWords).
+
+% pick_match(MatchesWithLengths, Match)
+% should hold when Match is the first match of the slot with the lowest number
+% of matches. MatchesWithLengths is a list of lists where the first element
+% of each inner list is the number of compatible matches for a given slot. Each
+% list in MatchesWithLengths represents a slot in the puzzle.
+pick_match(MatchesWithLengths, Slot, Match) :-
+	sort(MatchesWithLengths, [[Len, Slot, [Match|Tail]]|Sorted]).
+
+% match_lengths(Slots, Words, MatchesWithLengths)
+% should hold when MatchesWithLengths is a list where the first element is a
+% list of matches for the slot at that position and the second element is the
+% length of the list. The matches in MatchesWithLengths should be based on
+% compatibility with Words.
+match_lengths([], _, []).
+match_lengths([S|Slots], Words, Lst) :-
+	matches_for_slot(S, Words, M),
+	length(M, Len),
+	Lst = [[Len, S, M]|Ys],
+	match_lengths(Slots, Words, Ys).
+
+% matches_for_slot(Slot, Words, Matches)
+% should hold when Matches is the list of all possible words that fit in Slot.
+% Slot is the slot containing variables and letters, and Words is the list of
+% all possible words that can fit in that slot.
+matches_for_slot(_, [], []).
+matches_for_slot(Slot, [W|Words], Matches) :-
+	(compatible(Slot, W)
+	-> Matches = [W|Ys]
+	;  Matches = Ys
+	),
+	matches_for_slot(Slot, Words, Ys).
+
+% compatible(Slot, Word)
+% should hold when Word is able to fit into slot. That is, letters in Slot have
+% to be in the same position as the same letter in Word. Slot and Word must
+% also have the same length.
+compatible([], []).
+compatible([S|Slot], [W|Word]) :-
+	(atom(S)
+	-> S == W,
+	   compatible(Slot, Word)
+	;  compatible(Slot, Word)
+	).
 
 % convert_puzzle(L1, L2)
 % should hold when L2 and L1 contain lists, and L2 contains the lists in L1
@@ -121,9 +178,70 @@ convert([E1|Rest1], [E2|Rest2]) :-
 	convert(Rest1, Rest2).
 
 % fillable(A, B)
-% should hold when B is either blocked (if A is the # character), fill(A) (if
-% A is a character), or fill(_) (if A is the underscore character).
-fillable('#', blocked).
-fillable('_', fill(_)).
-fillable(A, fill(A)) :-
-	char_type(A, alpha).
+% should hold when B is either blocked (if A is the # character), Char (if
+% Char is a character), or a variable (if A is the underscore character).
+% fillable('#', blocked).
+fillable('_', _).
+fillable(Char, Char) :-
+	atom(Char).
+
+% extract_puzzle_slots(Puzzle, Slots)
+% should hold when Slots is a list of all sequences of non-blocked variables
+% or atoms in the puzzle, which we will call slots. First, all slots are found
+% for each row in the puzzle. Then the puzzle is transposed and all slots are
+% found for each column in the puzzle. Slots contains all the slots that have
+% been found for each row and column in the puzzle. Slots of length 1 or less
+% are removed because a slot must have two or more characters.
+extract_puzzle_slots(Puzzle, Slots) :-
+	extract_all_slots(Puzzle, RowSlots),
+	transpose(Puzzle, Transposed),
+	extract_all_slots(Transposed, ColumnSlots),
+	append(RowSlots, ColumnSlots, SlotsBeforeRemove),
+	exclude(short_list, SlotsBeforeRemove, Slots).
+
+% extract_all_slots(Rows, Slots)
+% should hold when Slots contains all the slots contained in every row in Rows.
+% Rows is a list of rows of the puzzle that need to have the slots extracted
+% and added to Slots. Slots should contain the accumulation of every possible
+% slot found in Rows. A slot is defined by a subsequnce of non-blocked atoms
+% or variables.
+extract_all_slots([], []).
+extract_all_slots([Row|Rows], Slots) :-
+    extract_slots(Row, Slots1),
+    append(Slots1, Ys, Slots),
+    extract_all_slots(Rows, Ys).
+
+% extract_slots(Row, Slots)
+% should hold when Slots is a list of the sequences of non-blocked variables or
+% atoms found in Row. Row can contain several such subsequences where variables
+% and letter atoms are separated by any number of blocked atoms. Slots is a
+% list containing all such subsequences, none containing blocked atoms.
+extract_slots([], []).
+extract_slots(Row, Slots) :-
+	append(Row, ['#'], Row1),
+    extract_slots(Row1, [], Slots).
+
+% extract_slots(Row, Slot, Slots)
+% should hold when Slots is a list of all the non-blocked subsequences that have
+% been found so far in Row. Slot contains the running list of non-blocked
+% variables that have been found so far without encountering a blocked atom.
+% When a blocked atom is reached, Slot is added to Slots. Otherwise, the current
+% character is added to the current slot until a blocked character is reached.
+extract_slots([], [], []).
+extract_slots([X|Xs], Slot, Slots) :-
+    (X == '#'
+    -> (Slot == []
+	   -> Slots = Ys
+	   ;
+	   Slots = [Slot|Ys]
+	   ),
+       extract_slots(Xs, [], Ys)
+	;  append(Slot, [X], Ys),
+       extract_slots(Xs, Ys, Slots)
+	).
+
+% short_list(Lst)
+% should hold when Lst contains zero elements or one element.
+short_list(Lst) :-
+	length(Lst, Len),
+	Len =< 1.
