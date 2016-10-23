@@ -201,13 +201,16 @@ convert([E1|Rest1], [E2|Rest2], Pred) :-
 	convert(Rest1, Rest2, Pred).
 
 % fillable(A, B)
-% should hold when B is either Char (if Char is a character) or a variable
-% (if A is the underscore character).
+% should hold when B is either Char (if Char is an alphanumeric character) or
+% a variable (if A is the underscore character).
 fillable('#', blocked).
 fillable('_', fill(_)).
 fillable(Char, fill(Char)) :-
 	char_type(Char, alpha).
 
+% fillable_reverse(A, B)
+% should hold when B is '#' (if A is the blocked atom) or Char (if A is fill(Char)
+% and Char is an alphanumeric character).
 fillable_reverse(blocked, '#').
 fillable_reverse(fill(Char), Char) :-
 	char_type(Char, alpha).
