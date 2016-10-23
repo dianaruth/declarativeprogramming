@@ -1,3 +1,14 @@
+% fillin.pl
+% Diana Ruth
+% druth
+% 851465
+
+% This file implements solving fill-in puzzles using Prolog. Given the structure
+% of a puzzle with free spaces represented by underscores and blocked spaces
+% represented by pound symbols, as well as a list of words, the program solves
+% the fill-in puzzle by inserting words into the slots so that every slot is
+% a valid word in the word list.
+
 % Load the correct transpose/2 predicate
 :- ensure_loaded(library(clpfd)).
 
@@ -124,12 +135,28 @@ match_slots(Slots, Words) :-
 	select(NextSlot, Slots, NewSlots),
 	match_slots(NewSlots, NewWords).
 
+% pick_match(Slot, Words, Match)
+% should hold when Match is a word from Words that is compatible with Slot. That
+% is, Match should be able to fit into Slot based on the variables and characters
+% already contained in Slot. All of the possible words in Words that can fit into
+% Slot are found and Match is the first word in that list.
 pick_match(Slot, Words, Match) :-
 	matches_for_slot(Slot, Words, [Match|_]).
 
+% slot_with_min_matches(Lst, Slot)
+% should hold when Slot is the slot that has the least number of matches out of
+% all remaining slots. Lst is a list of key-value pairs where the key is the
+% number of matches for the slot and the value is the slot. The slot with the
+% least amount of matches is returned as Slot. The key-value pairs are sorted
+% using the built-in predicate keysort/2.
 slot_with_min_matches(Lst, Slot) :-
 	keysort(Lst, [_-Slot|_]).
 
+% match_lengths(Slots, Words, Lst)
+% should hold when Lst is a list of key-value pairs where each key-value pair
+% represents a slot. The key is the number of words in Words that can fit into
+% the slot and the value is the slot. matches_for_slot/3 is used to determine
+% the number of matches that each slot has.
 match_lengths([], _, []).
 match_lengths([S|Slots], Words, Lst) :-
 	matches_for_slot(S, Words, M),
@@ -137,6 +164,9 @@ match_lengths([S|Slots], Words, Lst) :-
 	Lst = [Len-S|Ys],
 	match_lengths(Slots, Words, Ys).
 
+% matches_for_slot(Slot, Words, Matches)
+% should hold when Matches is a list of the words in Words that can fit into
+% Slot. compatible/2 is used to determine if a word is compatible with a slot.
 matches_for_slot(_, [], []).
 matches_for_slot(Slot, [W|Words], Matches) :-
 	(compatible(Slot, W)
@@ -185,7 +215,7 @@ fillable(Char, fill(Char)) :-
 % fillable_reverse(fill(Char), Char).
 
 % extract_puzzle_slots(Puzzle, Slots)
-% should hold when Slots is a list of all sequences of non-'#' variables
+% should hold when Slots is a list of all sequences of non-blocked atoms
 % or atoms in the puzzle, which we will call slots. First, all slots are found
 % for each row in the puzzle. Then the puzzle is transposed and all slots are
 % found for each column in the puzzle. Slots contains all the slots that have
@@ -202,7 +232,7 @@ extract_puzzle_slots(Puzzle, Slots) :-
 % should hold when Slots contains all the slots contained in every row in Rows.
 % Rows is a list of rows of the puzzle that need to have the slots extracted
 % and added to Slots. Slots should contain the accumulation of every possible
-% slot found in Rows. A slot is defined by a subsequnce of non-'#' atoms
+% slot found in Rows. A slot is defined by a subsequnce of non-blocked atoms
 % or variables.
 extract_all_slots([], []).
 extract_all_slots([Row|Rows], Slots) :-
@@ -211,21 +241,21 @@ extract_all_slots([Row|Rows], Slots) :-
     extract_all_slots(Rows, Ys).
 
 % extract_slots(Row, Slots)
-% should hold when Slots is a list of the sequences of non-'#' variables or
+% should hold when Slots is a list of the sequences of non-blocked atoms or
 % atoms found in Row. Row can contain several such subsequences where variables
-% and letter atoms are separated by any number of '#' atoms. Slots is a
-% list containing all such subsequences, none containing '#' atoms.
+% and letter atoms are separated by any number of blocked atoms. Slots is a
+% list containing all such subsequences, none containing blocked atoms.
 extract_slots([], []).
 extract_slots(Row, Slots) :-
 	append(Row, [blocked], Row1),
     extract_slots(Row1, [], Slots).
 
 % extract_slots(Row, Slot, Slots)
-% should hold when Slots is a list of all the non-'#' subsequences that have
-% been found so far in Row. Slot contains the running list of non-'#'
-% variables that have been found so far without encountering a '#' atom.
-% When a '#' atom is reached, Slot is added to Slots. Otherwise, the current
-% character is added to the current slot until a '#' character is reached.
+% should hold when Slots is a list of all the non-blocked subsequences that have
+% been found so far in Row. Slot contains the running list of non-blocked
+% atoms that have been found so far without encountering a blocked atom.
+% When a blocked atom is reached, Slot is added to Slots. Otherwise, the current
+% character is added to the current slot until a blocked character is reached.
 extract_slots([], [], []).
 extract_slots([X|Xs], Slot, Slots) :-
     (X == blocked
