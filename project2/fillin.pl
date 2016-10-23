@@ -110,15 +110,11 @@ samelength([_|L1], [_|L2]) :-
 % list per puzzle row. Words is also a list of lists of
 % characters, one list per word.
 solve_puzzle(Puzzle, Words, Solved) :-
-	convert_puzzle(Puzzle, Converted),
-	% print(Converted),
-	%extract_puzzle_slots(Converted, Slots),
+	convert_puzzle(Puzzle, Converted, fillable),
 	extract_puzzle_slots(Converted, Slots),
-	% print(Slots),
+	extract_puzzle_slots(Converted, Slots),
 	match_slots(Slots, Words),
-	print(Converted).
-	% print(Converted).
-	% Solved = Converted.
+	convert_puzzle(Converted, Solved, fillable_reverse).
 
 % match_slots(Slots, Words)
 % should hold when Slots is a list of slots (containing letters or variables)
@@ -129,7 +125,7 @@ match_slots(Slots, Words) :-
 	match_lengths(Slots, Words, SlotsWithLengths),
 	slot_with_min_matches(SlotsWithLengths, NextSlot),
 	pick_match(NextSlot, Words, Match),
-	convert(Match, ConvertedMatch),
+	convert(Match, ConvertedMatch, fillable),
 	NextSlot = ConvertedMatch,
 	select(Match, Words, NewWords),
 	select(NextSlot, Slots, NewSlots),
@@ -187,21 +183,22 @@ compatible([fill(S)|Slot], [W|Word]) :-
 	;  compatible(Slot, Word)
 	).
 
-% convert_puzzle(L1, L2)
+% convert_puzzle(L1, L2, Pred)
 % should hold when L2 and L1 contain lists, and L2 contains the lists in L1
-% when the elements have been converted according to the predicate convert/2.
-convert_puzzle([],[]).
-convert_puzzle([E1|Rest1],[E2|Rest2]) :-
-	convert(E1, E2),
-	convert_puzzle(Rest1, Rest2).
+% when the elements have been converted according to the predicate specified
+% by Pred.
+convert_puzzle([],[], _).
+convert_puzzle([E1|Rest1],[E2|Rest2], Pred) :-
+	convert(E1, E2, Pred),
+	convert_puzzle(Rest1, Rest2, Pred).
 
 % convert(L1, L2)
 % should hold when the elements of L2 are the elements of L1 when each element
-% has been changed based on the fillable/2 predicate.
-convert([], []).
-convert([E1|Rest1], [E2|Rest2]) :-
-	fillable(E1, E2),
-	convert(Rest1, Rest2).
+% has been changed using Pred.
+convert([], [], _).
+convert([E1|Rest1], [E2|Rest2], Pred) :-
+	call(Pred, E1, E2),
+	convert(Rest1, Rest2, Pred).
 
 % fillable(A, B)
 % should hold when B is either Char (if Char is a character) or a variable
@@ -211,8 +208,9 @@ fillable('_', fill(_)).
 fillable(Char, fill(Char)) :-
 	char_type(Char, alpha).
 
-% fillable_reverse(blocked, '#').
-% fillable_reverse(fill(Char), Char).
+fillable_reverse(blocked, '#').
+fillable_reverse(fill(Char), Char) :-
+	char_type(Char, alpha).
 
 % extract_puzzle_slots(Puzzle, Slots)
 % should hold when Slots is a list of all sequences of non-blocked atoms
